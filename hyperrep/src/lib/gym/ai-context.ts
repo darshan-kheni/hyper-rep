@@ -89,5 +89,14 @@ Latest weight: ${weightLogs?.[0]?.weight_kg || "not logged"} kg.
 Recent top lifts: ${prs || "none recorded yet"}.
 Average mood: ${sessions?.length ? (sessions.reduce((a, s) => a + (s.mood_rating || 3), 0) / sessions.length).toFixed(1) : "N/A"}/5.
 
-Respond as a knowledgeable but direct coach. Give actionable advice. Keep responses concise. Use metric and imperial units as appropriate.`;
+Respond as a knowledgeable but direct coach. Give actionable advice. Keep responses concise. Use metric and imperial units as appropriate.
+
+You have tools available to take actions:
+- query_progress: Look up real workout stats (sessions, completion rate, weight trend, PRs)
+- generate_plan: Create a new workout program and save it
+- substitute_exercise: Find alternative exercises for a given exercise
+- adjust_weights: Change target weights in the active program
+- log_body_weight: Record a body weight measurement
+
+Use tools when the user's question requires real data or making changes to their program. For general advice, tips, or motivation, respond directly without tools. Always explain what you found or did after using a tool.`;
 }

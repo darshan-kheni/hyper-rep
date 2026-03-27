@@ -1,13 +1,14 @@
 "use client";
 
 import { useState, useRef, useEffect, useCallback } from "react";
-import { Send, Bot, User } from "lucide-react";
+import { Send, Bot, User, Loader2 } from "lucide-react";
 import { clsx } from "clsx";
 
 type Message = {
   id: string;
   role: "user" | "assistant";
   content: string;
+  toolStatus?: string;
 };
 
 interface AIChatClientProps {
@@ -22,7 +23,10 @@ export function AIChatClient({ userName }: AIChatClientProps) {
   const scrollRef = useRef<HTMLDivElement>(null);
 
   const scrollToBottom = useCallback(() => {
-    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+    scrollRef.current?.scrollTo({
+      top: scrollRef.current.scrollHeight,
+      behavior: "smooth",
+    });
   }, []);
 
   useEffect(() => {
@@ -63,24 +67,65 @@ export function AIChatClient({ userName }: AIChatClientProps) {
 
       const decoder = new TextDecoder();
       let fullContent = "";
+      let buffer = "";
 
       while (true) {
         const { done, value } = await reader.read();
         if (done) break;
 
-        const chunk = decoder.decode(value, { stream: true });
-        fullContent += chunk;
+        buffer += decoder.decode(value, { stream: true });
+        const lines = buffer.split("\n");
+        buffer = lines.pop() || ""; // Keep incomplete line in buffer
 
-        setMessages((prev) =>
-          prev.map((m) =>
-            m.id === assistantMsg.id ? { ...m, content: fullContent } : m
-          )
-        );
+        for (const line of lines) {
+          if (!line.trim()) continue;
+
+          try {
+            const parsed = JSON.parse(line);
+
+            if (parsed.type === "status") {
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsg.id
+                    ? { ...m, toolStatus: parsed.content }
+                    : m
+                )
+              );
+            } else if (parsed.type === "text") {
+              fullContent += parsed.content;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsg.id
+                    ? { ...m, content: fullContent, toolStatus: undefined }
+                    : m
+                )
+              );
+            } else if (parsed.type === "error") {
+              throw new Error(parsed.content);
+            }
+            // "done" — loop ends naturally
+          } catch (e) {
+            // Not valid JSON — treat as plain text (backward compat)
+            if (e instanceof SyntaxError) {
+              fullContent += line;
+              setMessages((prev) =>
+                prev.map((m) =>
+                  m.id === assistantMsg.id
+                    ? { ...m, content: fullContent, toolStatus: undefined }
+                    : m
+                )
+              );
+            } else {
+              throw e;
+            }
+          }
+        }
       }
     } catch (err) {
       setError(err instanceof Error ? err.message : "Failed to get response");
-      // Remove empty assistant message on error
-      setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
+      setMessages((prev) =>
+        prev.filter((m) => !(m.id === `a-${Date.now()}` && m.content === ""))
+      );
     } finally {
       setIsLoading(false);
     }
@@ -93,23 +138,28 @@ export function AIChatClient({ userName }: AIChatClientProps) {
         AI Coach
       </h2>
       <p className="mb-4 text-xs text-text-muted">
-        Powered by Ollama Cloud — ask about workouts, nutrition, or get plan suggestions
+        Powered by Ollama Cloud — can query your data, generate plans, and adjust your program
       </p>
 
       {/* Messages */}
       <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 mb-4">
         {messages.length === 0 && (
           <div className="text-center py-12">
-            <Bot size={40} className="mx-auto mb-3 text-text-muted opacity-30" />
+            <Bot
+              size={40}
+              className="mx-auto mb-3 text-text-muted opacity-30"
+            />
             <p className="text-sm text-text-muted">
-              Hey {userName}! Ask me anything about your training.
+              Hey {userName}! I can check your stats, create programs, and adjust
+              your plan.
             </p>
             <div className="mt-4 flex flex-col gap-2">
               {[
-                "How should I adjust my plan this week?",
-                "Am I progressing well on my lifts?",
-                "What should I eat before my workout?",
-                "Suggest a substitute for chest press machine",
+                "How am I doing this week?",
+                "Create a 4-week hypertrophy program",
+                "What can I do instead of leg press?",
+                "Increase my chest press to 50 lbs",
+                "I weighed 63.5 kg today",
               ].map((q) => (
                 <button
                   key={q}
@@ -124,48 +174,63 @@ export function AIChatClient({ userName }: AIChatClientProps) {
         )}
 
         {messages.map((msg) => (
-          <div
-            key={msg.id}
-            className={clsx(
-              "flex gap-2",
-              msg.role === "user" ? "justify-end" : "justify-start"
-            )}
-          >
-            {msg.role === "assistant" && (
-              <div className="flex-shrink-0 mt-1">
-                <Bot size={16} className="text-accent" />
+          <div key={msg.id}>
+            {/* Tool status indicator */}
+            {msg.role === "assistant" && msg.toolStatus && (
+              <div className="flex items-center gap-2 text-xs text-accent mb-1 ml-6">
+                <Loader2 size={12} className="animate-spin" />
+                {msg.toolStatus}
               </div>
             )}
+
             <div
               className={clsx(
-                "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
-                msg.role === "user"
-                  ? "bg-accent text-white"
-                  : "bg-bg-card border border-border"
+                "flex gap-2",
+                msg.role === "user" ? "justify-end" : "justify-start"
               )}
             >
-              <div className="whitespace-pre-wrap">{msg.content}</div>
-            </div>
-            {msg.role === "user" && (
-              <div className="flex-shrink-0 mt-1">
-                <User size={16} className="text-text-muted" />
+              {msg.role === "assistant" && (
+                <div className="flex-shrink-0 mt-1">
+                  <Bot size={16} className="text-accent" />
+                </div>
+              )}
+              <div
+                className={clsx(
+                  "max-w-[85%] rounded-2xl px-4 py-2.5 text-sm leading-relaxed",
+                  msg.role === "user"
+                    ? "bg-accent text-white"
+                    : "bg-bg-card border border-border"
+                )}
+              >
+                <div className="whitespace-pre-wrap">
+                  {msg.content ||
+                    (msg.toolStatus ? "" : isLoading ? "" : "...")}
+                </div>
               </div>
-            )}
+              {msg.role === "user" && (
+                <div className="flex-shrink-0 mt-1">
+                  <User size={16} className="text-text-muted" />
+                </div>
+              )}
+            </div>
           </div>
         ))}
 
-        {isLoading && messages[messages.length - 1]?.content === "" && (
-          <div className="flex gap-2">
-            <Bot size={16} className="text-accent mt-1" />
-            <div className="rounded-2xl bg-bg-card border border-border px-4 py-2.5">
-              <div className="flex gap-1">
-                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" />
-                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.1s]" />
-                <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
+        {isLoading &&
+          messages.length > 0 &&
+          !messages[messages.length - 1]?.content &&
+          !messages[messages.length - 1]?.toolStatus && (
+            <div className="flex gap-2">
+              <Bot size={16} className="text-accent mt-1" />
+              <div className="rounded-2xl bg-bg-card border border-border px-4 py-2.5">
+                <div className="flex gap-1">
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce" />
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.1s]" />
+                  <span className="w-1.5 h-1.5 bg-accent rounded-full animate-bounce [animation-delay:0.2s]" />
+                </div>
               </div>
             </div>
-          </div>
-        )}
+          )}
 
         {error && (
           <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-xs text-error">
