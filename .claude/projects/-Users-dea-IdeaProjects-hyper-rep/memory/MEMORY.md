@@ -1,3 +1,0 @@
-- [User Profile](user_profile.md) — Vegetarian male in India building personal gym tracker, targets 60→80 kg
-- [Phase 1a Decisions](project_decisions.md) — Next.js 16+, Tailwind v4, Supabase SSR, subdirectory scaffold, dual unit support
-- [No Co-Authored-By](feedback_no_coauthor.md) — Never add Co-Authored-By lines in git commits
