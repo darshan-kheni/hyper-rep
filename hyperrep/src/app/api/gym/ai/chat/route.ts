@@ -25,7 +25,7 @@ export async function POST(req: Request) {
 
   const { messages: clientMessages } = await req.json();
   const systemPrompt = await buildAIContext(supabase, user.id);
-  const model = process.env.OLLAMA_MODEL || "qwen3.5:72b";
+  const model = process.env.OLLAMA_MODEL || "qwen3-next:80b";
 
   // Build message history
   const ollamaMessages: OllamaMessage[] = [
