@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Dumbbell, Settings } from "lucide-react";
+import { Dumbbell, Pill, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/gym/ThemeToggle";
 
 export default function GymLayout({
@@ -35,6 +35,13 @@ export default function GymLayout({
           >
             <Dumbbell size={20} />
             Workout
+          </Link>
+          <Link
+            href="/gym/supplements"
+            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-bold text-text-muted transition-colors hover:text-accent"
+          >
+            <Pill size={20} />
+            Supplements
           </Link>
           <Link
             href="/gym/settings"

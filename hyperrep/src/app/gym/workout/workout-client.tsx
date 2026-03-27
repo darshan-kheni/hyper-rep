@@ -6,7 +6,11 @@ import { Play, ChevronLeft, ChevronRight } from "lucide-react";
 import { startSession, endSession, toggleSetCompletion } from "@/lib/gym/actions";
 import { ExerciseCard } from "@/components/gym/ExerciseCard";
 import { SessionTimer } from "@/components/gym/SessionTimer";
+import { MealsTab } from "@/components/gym/MealsTab";
+import { TimelineTab } from "@/components/gym/TimelineTab";
+import { MEALS_WORKOUT_DAY, MEALS_REST_DAY } from "@/lib/gym/meal-data";
 import { Button } from "@/components/ui/Button";
+import { clsx } from "clsx";
 
 type TemplateExercise = {
   id: string;
@@ -79,6 +83,11 @@ export function WorkoutClient({
   const [isPending, startTransition] = useTransition();
   const [session, setSession] = useState(initialSession);
   const [showMoodRating, setShowMoodRating] = useState(false);
+  const [activeTab, setActiveTab] = useState<"workout" | "meals" | "timeline">("workout");
+
+  // Determine if this is a workout day (has exercises, not rest, not active recovery)
+  const isWorkoutDay = templateExercises.length > 0 && !template.is_rest_day && !template.day_title.includes("Active Recovery");
+  const mealTimeline = isWorkoutDay ? MEALS_WORKOUT_DAY : MEALS_REST_DAY;
 
   // Optimistic completion tracking
   const [optimisticLogs, addOptimisticLog] = useOptimistic(
@@ -178,9 +187,57 @@ export function WorkoutClient({
   return (
     <div>
       {/* Day title */}
-      <div className="mb-2">
+      <div className="mb-3">
         <div className="text-xs font-semibold text-text-muted">{template.day_focus}</div>
       </div>
+
+      {/* Tabs: Workout / Meals & Supps / Timeline */}
+      <div className="mb-4 flex gap-1 rounded-xl bg-accent-subtle p-1">
+        {templateExercises.length > 0 && (
+          <button
+            onClick={() => setActiveTab("workout")}
+            className={clsx(
+              "flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+              activeTab === "workout"
+                ? "bg-accent text-white"
+                : "text-text-muted hover:text-text-primary"
+            )}
+          >
+            Workout ({templateExercises.length})
+          </button>
+        )}
+        <button
+          onClick={() => setActiveTab("meals")}
+          className={clsx(
+            "flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+            activeTab === "meals"
+              ? "bg-accent text-white"
+              : "text-text-muted hover:text-text-primary"
+          )}
+        >
+          Meals & Supps
+        </button>
+        <button
+          onClick={() => setActiveTab("timeline")}
+          className={clsx(
+            "flex-1 rounded-lg py-2.5 text-[11px] font-bold uppercase tracking-wider transition-colors cursor-pointer",
+            activeTab === "timeline"
+              ? "bg-accent text-white"
+              : "text-text-muted hover:text-text-primary"
+          )}
+        >
+          Timeline
+        </button>
+      </div>
+
+      {/* ── MEALS & SUPPS TAB ── */}
+      {activeTab === "meals" && <MealsTab meals={mealTimeline} />}
+
+      {/* ── TIMELINE TAB ── */}
+      {activeTab === "timeline" && <TimelineTab meals={mealTimeline} />}
+
+      {/* ── WORKOUT TAB ── */}
+      {activeTab === "workout" && <>
 
       {/* Session controls */}
       {!session && (
@@ -263,6 +320,8 @@ export function WorkoutClient({
             preferredUnit={preferredUnit}
           />
         ))}
+
+      </>}
 
       {/* Navigation */}
       <div className="mt-6 flex gap-2">
