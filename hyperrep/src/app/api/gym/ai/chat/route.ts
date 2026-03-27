@@ -115,48 +115,20 @@ export async function POST(req: Request) {
             continue;
           }
 
-          // No tool calls — this is the final text response
-          // Stream it to the client
+          // No tool calls — send the response directly (no second Ollama call)
           if (assistantMsg.content) {
-            // Make a streaming call for better UX
-            const streamResponse = await fetch(OLLAMA_API, {
-              method: "POST",
-              headers: {
-                "Content-Type": "application/json",
-                Authorization: `Bearer ${process.env.OLLAMA_API_KEY || ""}`,
-              },
-              body: JSON.stringify({
-                model,
-                messages: ollamaMessages,
-                stream: true,
-              }),
-            });
+            const raw = assistantMsg.content as string;
 
-            if (streamResponse.ok && streamResponse.body) {
-              const reader = streamResponse.body.getReader();
-              const decoder = new TextDecoder();
+            // Extract thinking content if present (qwen3-next uses <think> tags)
+            const thinkMatch = raw.match(/<think>([\s\S]*?)<\/think>/);
+            if (thinkMatch && thinkMatch[1].trim()) {
+              send({ type: "thinking", content: thinkMatch[1].trim() });
+            }
 
-              while (true) {
-                const { done, value } = await reader.read();
-                if (done) break;
-
-                const chunk = decoder.decode(value, { stream: true });
-                const lines = chunk.split("\n").filter((l) => l.trim());
-
-                for (const line of lines) {
-                  try {
-                    const parsed = JSON.parse(line);
-                    if (parsed.message?.content) {
-                      send({ type: "text", content: parsed.message.content });
-                    }
-                  } catch {
-                    // Skip malformed lines
-                  }
-                }
-              }
-            } else {
-              // Fallback: send the non-streamed content
-              send({ type: "text", content: assistantMsg.content });
+            // Send the actual response (without thinking tags)
+            const content = raw.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
+            if (content) {
+              send({ type: "text", content });
             }
           }
 
