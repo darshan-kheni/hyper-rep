@@ -30,6 +30,11 @@ export async function proxy(request: NextRequest) {
     data: { user },
   } = await supabase.auth.getUser();
 
+  // Skip auth check for API routes (they handle their own auth)
+  if (request.nextUrl.pathname.startsWith("/api/")) {
+    return supabaseResponse;
+  }
+
   // Redirect unauthenticated users away from /gym
   if (!user && request.nextUrl.pathname.startsWith("/gym")) {
     const url = request.nextUrl.clone();
@@ -48,5 +53,5 @@ export async function proxy(request: NextRequest) {
 }
 
 export const config = {
-  matcher: ["/gym/:path*", "/login", "/signup"],
+  matcher: ["/gym/:path*", "/api/:path*", "/login", "/signup"],
 };

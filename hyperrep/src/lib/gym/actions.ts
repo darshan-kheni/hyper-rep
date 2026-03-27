@@ -349,19 +349,41 @@ export async function updateProfile(formData: FormData) {
 export async function regenerateProgram() {
   const { supabase, user } = await getUser();
 
-  // Deactivate current program (cascade deletes templates + template_exercises)
-  await supabase
+  // Get current active program
+  const { data: currentProgram } = await supabase
     .from("programs")
-    .update({ is_active: false })
+    .select("id")
     .eq("user_id", user.id)
-    .eq("is_active", true);
+    .eq("is_active", true)
+    .single();
 
-  // Delete inactive programs to clean up
-  await supabase
-    .from("programs")
-    .delete()
-    .eq("user_id", user.id)
-    .eq("is_active", false);
+  if (currentProgram) {
+    // Nullify session references to templates (preserve session history)
+    const { data: templates } = await supabase
+      .from("workout_templates")
+      .select("id")
+      .eq("program_id", currentProgram.id);
+
+    if (templates && templates.length > 0) {
+      const templateIds = templates.map((t) => t.id);
+      await supabase
+        .from("workout_sessions")
+        .update({ template_id: null })
+        .in("template_id", templateIds);
+    }
+
+    // Nullify program reference on sessions too
+    await supabase
+      .from("workout_sessions")
+      .update({ program_id: null })
+      .eq("program_id", currentProgram.id);
+
+    // Now safe to delete the program (cascades to templates + template_exercises)
+    await supabase
+      .from("programs")
+      .delete()
+      .eq("id", currentProgram.id);
+  }
 
   // Re-seed with new rest day
   const programId = await seedDefaultProgram();
