@@ -5,8 +5,9 @@ import { updateProfile, logWeight, regenerateProgram } from "@/lib/gym/actions";
 import { signOut } from "@/lib/supabase/auth-actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
 import { WeightChart } from "@/components/gym/WeightChart";
+import { RefreshCw, Scale, LogOut, User, Check } from "lucide-react";
+import { clsx } from "clsx";
 
 type Profile = {
   id: string;
@@ -59,11 +60,17 @@ export function SettingsClient({
       <h2 className="text-lg font-bold">Settings</h2>
 
       {/* Profile form */}
-      <Card>
-        <form action={handleProfileSubmit} className="flex flex-col gap-3">
-          <div className="text-xs font-bold uppercase tracking-widest text-text-muted mb-1">
-            Profile
+      <div className="rounded-2xl border border-border/50 bg-bg-card p-5 shadow-card">
+        <form action={handleProfileSubmit} className="flex flex-col gap-4">
+          <div className="flex items-center gap-2 mb-1">
+            <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-subtle">
+              <User size={14} className="text-accent" />
+            </div>
+            <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
+              Profile
+            </span>
           </div>
+
           <Input
             label="Name"
             name="name"
@@ -90,13 +97,13 @@ export function SettingsClient({
           />
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <label className="text-[11px] font-medium tracking-wide text-text-muted">
               Preferred Weight Unit
             </label>
             <select
               name="preferredUnit"
               defaultValue={profile?.preferred_weight_unit || "lbs"}
-              className="rounded-xl border border-border bg-bg-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all duration-150 min-h-[44px]"
             >
               <option value="lbs">Pounds (lbs)</option>
               <option value="kg">Kilograms (kg)</option>
@@ -104,13 +111,13 @@ export function SettingsClient({
           </div>
 
           <div className="flex flex-col gap-1.5">
-            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+            <label className="text-[11px] font-medium tracking-wide text-text-muted">
               Rest Day
             </label>
             <select
               name="restDay"
               defaultValue={profile?.rest_day || 6}
-              className="rounded-xl border border-border bg-bg-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+              className="rounded-xl border border-border bg-bg-elevated px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-1 focus:ring-accent/50 transition-all duration-150 min-h-[44px]"
             >
               <option value={1}>Monday</option>
               <option value={2}>Tuesday</option>
@@ -129,33 +136,52 @@ export function SettingsClient({
           />
 
           <Button type="submit" disabled={isPending}>
-            {saved ? "Saved!" : isPending ? "Saving..." : "Save Changes"}
+            {saved ? (
+              <span className="flex items-center justify-center gap-1.5">
+                <Check size={14} /> Saved
+              </span>
+            ) : isPending ? (
+              "Saving..."
+            ) : (
+              "Save Changes"
+            )}
           </Button>
         </form>
 
-        <Button
-          variant="secondary"
-          fullWidth
-          disabled={isPending}
-          onClick={() => {
-            if (confirm("This will regenerate your workout program with the new rest day. Existing session history is preserved. Continue?")) {
-              startTransition(async () => {
-                await regenerateProgram();
-                setSaved(true);
-                setTimeout(() => setSaved(false), 2000);
-              });
-            }
-          }}
-        >
-          Regenerate Program
-        </Button>
-      </Card>
+        <div className="mt-3 pt-3 border-t border-border/30">
+          <Button
+            variant="secondary"
+            fullWidth
+            disabled={isPending}
+            onClick={() => {
+              if (confirm("This will regenerate your workout program with the new rest day. Existing session history is preserved. Continue?")) {
+                startTransition(async () => {
+                  await regenerateProgram();
+                  setSaved(true);
+                  setTimeout(() => setSaved(false), 2000);
+                });
+              }
+            }}
+          >
+            <span className="flex items-center justify-center gap-1.5">
+              <RefreshCw size={14} />
+              Regenerate Program
+            </span>
+          </Button>
+        </div>
+      </div>
 
       {/* Weight logging */}
-      <Card>
-        <div className="text-xs font-bold uppercase tracking-widest text-text-muted mb-3">
-          Log Today's Weight
+      <div className="rounded-2xl border border-border/50 bg-bg-card p-5 shadow-card">
+        <div className="flex items-center gap-2 mb-4">
+          <div className="flex h-7 w-7 items-center justify-center rounded-lg bg-accent-subtle">
+            <Scale size={14} className="text-accent" />
+          </div>
+          <span className="text-xs font-bold uppercase tracking-widest text-text-muted">
+            Log Weight
+          </span>
         </div>
+
         <div className="flex gap-2">
           <Input
             type="number"
@@ -175,22 +201,30 @@ export function SettingsClient({
             disabled={isPending || !weightInput}
             className="flex-shrink-0"
           >
-            {weightSaved ? "Logged!" : "Log"}
+            {weightSaved ? (
+              <span className="flex items-center gap-1">
+                <Check size={14} /> Done
+              </span>
+            ) : (
+              "Log"
+            )}
           </Button>
         </div>
 
-        {/* Weight chart */}
         {weightLogs.length > 1 && (
           <div className="mt-4">
             <WeightChart data={weightLogs} target={profile?.target_weight_kg || 80} />
           </div>
         )}
-      </Card>
+      </div>
 
       {/* Sign out */}
       <form action={signOut}>
         <Button variant="danger" type="submit" fullWidth>
-          Sign Out
+          <span className="flex items-center justify-center gap-1.5">
+            <LogOut size={14} />
+            Sign Out
+          </span>
         </Button>
       </form>
     </div>

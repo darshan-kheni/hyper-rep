@@ -2,8 +2,8 @@
 
 import { useState } from "react";
 import { format, parseISO } from "date-fns";
-import { ChevronDown, ChevronUp, Clock } from "lucide-react";
-import { Card } from "@/components/ui/Card";
+import { ChevronDown, ChevronUp, Clock, Flame, Dumbbell } from "lucide-react";
+import { clsx } from "clsx";
 
 type ExerciseLog = {
   session_id: string;
@@ -40,7 +40,9 @@ export function HistoryClient({ sessions }: HistoryClientProps) {
   if (sessions.length === 0) {
     return (
       <div className="py-20 text-center">
-        <Clock size={32} className="mx-auto mb-3 text-text-muted" />
+        <div className="mx-auto mb-4 flex h-16 w-16 items-center justify-center rounded-2xl bg-bg-elevated">
+          <Clock size={28} className="text-text-muted" />
+        </div>
         <h2 className="text-lg font-bold">No sessions yet</h2>
         <p className="mt-1 text-sm text-text-muted">
           Complete a workout to see your history here.
@@ -53,7 +55,7 @@ export function HistoryClient({ sessions }: HistoryClientProps) {
     <div>
       <h2 className="mb-4 text-lg font-bold">Session History</h2>
 
-      <div className="flex flex-col gap-2">
+      <div className="flex flex-col gap-2.5">
         {sessions.map((s) => {
           const isExpanded = expandedId === s.id;
           const date = format(parseISO(s.started_at), "EEE, MMM d");
@@ -78,57 +80,79 @@ export function HistoryClient({ sessions }: HistoryClientProps) {
           }
 
           return (
-            <Card key={s.id}>
+            <div
+              key={s.id}
+              className={clsx(
+                "rounded-2xl border bg-bg-card shadow-card transition-all duration-200",
+                isExpanded ? "border-accent/20" : "border-border/50"
+              )}
+            >
               <button
                 onClick={() => setExpandedId(isExpanded ? null : s.id)}
-                className="w-full text-left cursor-pointer"
+                className="w-full text-left cursor-pointer p-4 active:scale-[0.99] transition-transform duration-150"
               >
                 <div className="flex items-center justify-between">
-                  <div>
+                  <div className="flex-1 min-w-0">
                     <div className="text-[10px] font-bold uppercase tracking-widest text-text-muted">
                       {date} · {time}
                     </div>
-                    <div className="mt-0.5 text-sm font-bold">
+                    <div className="mt-1 text-sm font-bold">
                       {s.template?.day_title || "Workout"}
                     </div>
-                    <div className="mt-0.5 text-[11px] text-text-muted">
-                      {s.template?.day_focus || ""}
-                    </div>
+                    {s.template?.day_focus && (
+                      <div className="mt-0.5 text-[11px] text-text-muted">
+                        {s.template.day_focus}
+                      </div>
+                    )}
                   </div>
                   <div className="flex items-center gap-3">
-                    <div className="text-right">
+                    <div className="flex items-center gap-3">
                       {s.duration_minutes && (
-                        <div className="font-mono text-xs font-bold text-accent">
-                          {s.duration_minutes} min
+                        <div className="flex items-center gap-1">
+                          <Clock size={11} className="text-text-muted" />
+                          <span className="font-mono text-xs font-bold text-accent tabular-nums">
+                            {s.duration_minutes}m
+                          </span>
                         </div>
                       )}
-                      <div className="text-[10px] text-text-muted">
-                        {s.logs.length} sets
+                      <div className="flex items-center gap-1">
+                        <Dumbbell size={11} className="text-text-muted" />
+                        <span className="text-[11px] font-semibold text-text-muted tabular-nums">
+                          {s.logs.length}
+                        </span>
                       </div>
                       {s.mood_rating && (
-                        <div className="text-[10px] text-text-muted">
-                          Mood: {s.mood_rating}/5
+                        <div className="flex items-center gap-1">
+                          <Flame size={11} className="text-text-muted" />
+                          <span className="text-[11px] font-semibold text-text-muted tabular-nums">
+                            {s.mood_rating}/5
+                          </span>
                         </div>
                       )}
                     </div>
-                    {isExpanded ? (
-                      <ChevronUp size={16} className="text-text-muted" />
-                    ) : (
-                      <ChevronDown size={16} className="text-text-muted" />
-                    )}
+                    <div className="text-text-muted">
+                      {isExpanded ? (
+                        <ChevronUp size={16} />
+                      ) : (
+                        <ChevronDown size={16} />
+                      )}
+                    </div>
                   </div>
                 </div>
               </button>
 
               {isExpanded && Object.keys(exerciseGroups).length > 0 && (
-                <div className="mt-3 border-t border-border pt-3">
-                  {Object.entries(exerciseGroups).map(([name, data]) => (
+                <div className="mx-4 mb-4 rounded-xl border border-border/30 bg-bg-elevated/50 overflow-hidden">
+                  {Object.entries(exerciseGroups).map(([name, data], idx) => (
                     <div
                       key={name}
-                      className="flex items-center justify-between py-1.5"
+                      className={clsx(
+                        "flex items-center justify-between px-3 py-2.5",
+                        idx > 0 && "border-t border-border/30"
+                      )}
                     >
                       <span className="text-xs font-semibold">{name}</span>
-                      <span className="font-mono text-[11px] text-text-muted">
+                      <span className="font-mono text-[11px] text-text-muted tabular-nums">
                         {data.sets}×{Math.round(data.totalReps / data.sets)}
                         {data.maxWeight
                           ? ` @ ${data.maxWeight} ${data.unit}`
@@ -138,7 +162,7 @@ export function HistoryClient({ sessions }: HistoryClientProps) {
                   ))}
                 </div>
               )}
-            </Card>
+            </div>
           );
         })}
       </div>

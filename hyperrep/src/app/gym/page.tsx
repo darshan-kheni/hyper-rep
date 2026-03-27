@@ -20,22 +20,27 @@ export default async function GymDashboard() {
 
   if (!user) return null;
 
-  // Get profile
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
+  // Parallel: profile + program + latest weight
+  const [{ data: profile }, { data: programData }, { data: latestWeight }] =
+    await Promise.all([
+      supabase.from("profiles").select("*").eq("id", user.id).single(),
+      supabase
+        .from("programs")
+        .select("*")
+        .eq("user_id", user.id)
+        .eq("is_active", true)
+        .limit(1)
+        .single(),
+      supabase
+        .from("weight_logs")
+        .select("weight_kg")
+        .eq("user_id", user.id)
+        .order("logged_at", { ascending: false })
+        .limit(1)
+        .single(),
+    ]);
 
-  // Get or seed active program
-  let { data: program } = await supabase
-    .from("programs")
-    .select("*")
-    .eq("user_id", user.id)
-    .eq("is_active", true)
-    .limit(1)
-    .single();
-
+  let program = programData;
   if (!program) {
     const programId = await seedDefaultProgram();
     const { data: seeded } = await supabase
@@ -54,11 +59,12 @@ export default async function GymDashboard() {
     );
   }
 
-  // Get all templates for this program
-  const { data: templates } = await supabase
-    .from("workout_templates")
-    .select(
-      `
+  // Parallel: templates + sessions
+  const [{ data: templates }, { data: sessions }] = await Promise.all([
+    supabase
+      .from("workout_templates")
+      .select(
+        `
       id,
       week_number,
       day_of_week,
@@ -67,17 +73,16 @@ export default async function GymDashboard() {
       is_rest_day,
       template_exercises (id)
     `
-    )
-    .eq("program_id", program.id)
-    .order("week_number")
-    .order("day_of_week");
-
-  // Get all completed exercise logs for this program's sessions
-  const { data: sessions } = await supabase
-    .from("workout_sessions")
-    .select("id, template_id")
-    .eq("program_id", program.id)
-    .eq("user_id", user.id);
+      )
+      .eq("program_id", program.id)
+      .order("week_number")
+      .order("day_of_week"),
+    supabase
+      .from("workout_sessions")
+      .select("id, template_id")
+      .eq("program_id", program.id)
+      .eq("user_id", user.id),
+  ]);
 
   const sessionIds = (sessions || []).map((s) => s.id);
   let completedLogs: { template_exercise_id: string }[] = [];
@@ -90,15 +95,6 @@ export default async function GymDashboard() {
       .eq("is_completed", true);
     completedLogs = logs || [];
   }
-
-  // Get latest weight
-  const { data: latestWeight } = await supabase
-    .from("weight_logs")
-    .select("weight_kg")
-    .eq("user_id", user.id)
-    .order("logged_at", { ascending: false })
-    .limit(1)
-    .single();
 
   // Build week data
   const completedSet = new Set(

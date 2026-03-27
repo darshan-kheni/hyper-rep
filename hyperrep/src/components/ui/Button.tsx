@@ -12,13 +12,13 @@ interface ButtonProps extends ButtonHTMLAttributes<HTMLButtonElement> {
 
 const variants: Record<Variant, string> = {
   primary:
-    "bg-accent text-white font-bold hover:bg-accent-hover",
+    "bg-accent text-white font-bold shadow-md shadow-accent/20 hover:brightness-110",
   secondary:
-    "bg-transparent border border-border text-text-primary font-bold hover:bg-bg-elevated",
+    "bg-transparent border border-border text-text-primary font-semibold hover:bg-bg-elevated",
   ghost:
     "bg-transparent text-text-muted font-semibold hover:text-accent hover:bg-accent-subtle",
   danger:
-    "bg-transparent border border-error text-error font-bold hover:bg-error/10",
+    "bg-transparent border border-error text-error font-semibold hover:bg-error/10",
 };
 
 export function Button({
@@ -31,7 +31,8 @@ export function Button({
   return (
     <button
       className={clsx(
-        "rounded-xl px-5 py-3 text-sm transition-colors cursor-pointer disabled:opacity-50 disabled:cursor-not-allowed",
+        "rounded-xl px-5 py-3 min-h-[44px] text-sm transition-all duration-150 cursor-pointer",
+        "active:scale-[0.97] disabled:opacity-50 disabled:cursor-not-allowed disabled:active:scale-100",
         variants[variant],
         fullWidth && "w-full",
         className

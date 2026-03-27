@@ -9,19 +9,15 @@ export default async function SettingsPage() {
 
   if (!user) return null;
 
-  const { data: profile } = await supabase
-    .from("profiles")
-    .select("*")
-    .eq("id", user.id)
-    .single();
-
-  // Get recent weight logs
-  const { data: weightLogs } = await supabase
-    .from("weight_logs")
-    .select("weight_kg, logged_at")
-    .eq("user_id", user.id)
-    .order("logged_at", { ascending: true })
-    .limit(30);
+  const [{ data: profile }, { data: weightLogs }] = await Promise.all([
+    supabase.from("profiles").select("*").eq("id", user.id).single(),
+    supabase
+      .from("weight_logs")
+      .select("weight_kg, logged_at")
+      .eq("user_id", user.id)
+      .order("logged_at", { ascending: true })
+      .limit(30),
+  ]);
 
   return (
     <SettingsClient

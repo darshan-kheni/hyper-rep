@@ -14,7 +14,7 @@ export function Input({ label, error, className, id, ...props }: InputProps) {
       {label && (
         <label
           htmlFor={inputId}
-          className="text-xs font-semibold uppercase tracking-wider text-text-muted"
+          className="text-[11px] font-medium uppercase tracking-wide text-text-muted"
         >
           {label}
         </label>
@@ -22,10 +22,10 @@ export function Input({ label, error, className, id, ...props }: InputProps) {
       <input
         id={inputId}
         className={clsx(
-          "rounded-xl border border-border bg-bg-card px-4 py-3 text-sm text-text-primary",
+          "rounded-xl border border-border bg-bg-elevated px-4 py-3 min-h-[44px] text-sm text-text-primary",
           "placeholder:text-text-muted",
-          "focus:outline-none focus:ring-2 focus:ring-accent focus:border-transparent",
-          "transition-colors",
+          "focus:outline-none focus:ring-1 focus:ring-accent/50 focus:border-transparent",
+          "transition-all duration-150",
           error && "border-error focus:ring-error",
           className
         )}

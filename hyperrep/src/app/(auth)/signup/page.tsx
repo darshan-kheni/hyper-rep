@@ -5,7 +5,7 @@ import Link from "next/link";
 import { signup } from "@/lib/supabase/auth-actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
-import { Card } from "@/components/ui/Card";
+import { Dumbbell } from "lucide-react";
 
 export default function SignupPage() {
   const [error, setError] = useState<string | null>(null);
@@ -22,12 +22,18 @@ export default function SignupPage() {
   }
 
   return (
-    <Card className="p-8">
+    <div className="rounded-2xl border border-border/50 bg-bg-card p-8 shadow-elevated">
       <div className="mb-8 text-center">
-        <h1 className="text-2xl font-extrabold tracking-tight">
-          <span className="text-accent">HYPER</span>REP
+        <div className="mx-auto mb-4 flex h-14 w-14 items-center justify-center rounded-2xl bg-accent-subtle">
+          <Dumbbell size={24} className="text-accent" />
+        </div>
+        <h1 className="text-2xl font-black tracking-tight">
+          <span className="text-accent drop-shadow-[0_0_8px_var(--color-accent-glow)]">
+            HYPER
+          </span>
+          <span className="text-text-primary">REP</span>
         </h1>
-        <p className="mt-1 text-xs font-semibold uppercase tracking-widest text-text-muted">
+        <p className="mt-1.5 text-xs font-semibold uppercase tracking-widest text-text-muted">
           Create your account
         </p>
       </div>
@@ -53,7 +59,7 @@ export default function SignupPage() {
           label="Password"
           name="password"
           type="password"
-          placeholder="••••••••"
+          placeholder="Min. 6 characters"
           required
           minLength={6}
           autoComplete="new-password"
@@ -62,7 +68,7 @@ export default function SignupPage() {
           label="Confirm Password"
           name="confirmPassword"
           type="password"
-          placeholder="••••••••"
+          placeholder="Repeat password"
           required
           minLength={6}
           autoComplete="new-password"
@@ -90,7 +96,7 @@ export default function SignupPage() {
         </div>
 
         {error && (
-          <p className="rounded-lg bg-error/10 px-3 py-2 text-xs text-error">
+          <p className="rounded-xl bg-error/10 border border-error/20 px-3 py-2.5 text-xs text-error font-medium">
             {error}
           </p>
         )}
@@ -106,6 +112,6 @@ export default function SignupPage() {
           Sign in
         </Link>
       </p>
-    </Card>
+    </div>
   );
 }

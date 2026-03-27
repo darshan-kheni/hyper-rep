@@ -14,8 +14,10 @@ export function Card({
   return (
     <div
       className={clsx(
-        "rounded-2xl border bg-bg-card p-4 transition-colors",
-        active ? "border-accent bg-accent-subtle" : "border-border",
+        "rounded-2xl border bg-bg-card p-4 shadow-sm shadow-black/5 dark:shadow-black/20 transition-all duration-200",
+        active
+          ? "border-border/50 border-l-2 border-l-accent bg-accent-subtle"
+          : "border-border/50",
         className
       )}
       {...props}

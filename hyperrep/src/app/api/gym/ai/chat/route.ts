@@ -1,6 +1,9 @@
 import { createClient } from "@/lib/supabase/server";
 import { buildAIContext } from "@/lib/gym/ai-context";
 import { AI_TOOLS, TOOL_STATUS, executeTool } from "@/lib/gym/ai-tools";
+import { saveConversation, extractMemories } from "@/lib/gym/ai-memory";
+import { webSearch } from "@/lib/gym/web-search";
+import { analyzeImage } from "@/lib/gym/analyze-image";
 
 const OLLAMA_API = "https://ollama.com/api/chat";
 const MAX_TOOL_ITERATIONS = 5;
@@ -23,7 +26,7 @@ export async function POST(req: Request) {
     return new Response("Unauthorized", { status: 401 });
   }
 
-  const { messages: clientMessages } = await req.json();
+  const { messages: clientMessages, conversationId: incomingConvId, deepResearch, image } = await req.json();
   const systemPrompt = await buildAIContext(supabase, user.id);
   const model = process.env.OLLAMA_MODEL || "qwen3-next:80b";
 
@@ -41,6 +44,12 @@ export async function POST(req: Request) {
     ),
   ];
 
+  // Analyze image with Gemini Vision if provided, then inject description as text
+  let imageAnalysis: string | null = null;
+  if (image) {
+    imageAnalysis = "pending"; // flag to handle in stream
+  }
+
   // NDJSON stream to client
   const encoder = new TextEncoder();
   const stream = new ReadableStream({
@@ -50,6 +59,66 @@ export async function POST(req: Request) {
       };
 
       try {
+        // ── Image Analysis: use Gemini Vision ──
+        if (imageAnalysis === "pending" && image) {
+          send({ type: "status", content: "Analyzing your photo..." });
+
+          try {
+            const description = await analyzeImage(image);
+            // Inject analysis as context into the last user message
+            const lastMsg = ollamaMessages[ollamaMessages.length - 1];
+            if (lastMsg && lastMsg.role === "user") {
+              lastMsg.content =
+                `${lastMsg.content}\n\n[IMAGE ANALYSIS — the user attached a photo, here is what it shows]:\n${description}\n\nUse this analysis to give specific, actionable coaching advice about what you see.`;
+            }
+            send({ type: "status", content: "Photo analyzed. Preparing response..." });
+          } catch (imgErr) {
+            send({
+              type: "status",
+              content: `Could not analyze photo: ${imgErr instanceof Error ? imgErr.message : "unknown error"}. Answering based on text only.`,
+            });
+          }
+        }
+
+        // ── Deep Research: search the web first ──
+        if (deepResearch) {
+          const lastUserMsg = clientMessages[clientMessages.length - 1];
+          const searchQuery =
+            lastUserMsg?.content ||
+            lastUserMsg?.parts?.map((p: { type: string; text: string }) => p.text).join("") ||
+            "";
+
+          if (searchQuery) {
+            send({ type: "status", content: "Searching the web..." });
+
+            try {
+              const searchData = await webSearch(searchQuery, 6);
+
+              let searchContext = "\n\nWEB SEARCH RESULTS (user enabled Deep Research — use these sources to inform your answer):\n";
+              if (searchData.answer) {
+                searchContext += `\nQuick answer: ${searchData.answer}\n`;
+              }
+              searchData.results.forEach((r, i) => {
+                searchContext += `\n[${i + 1}] ${r.title}\nURL: ${r.url}\n${r.content}\n`;
+              });
+              searchContext += "\nIMPORTANT: Cite sources with their URL when using information from search results. Format citations as markdown links.";
+
+              // Inject search results as a system message before the last user message
+              ollamaMessages.splice(ollamaMessages.length - 1, 0, {
+                role: "system",
+                content: searchContext,
+              });
+
+              send({ type: "status", content: `Found ${searchData.results.length} sources. Analyzing...` });
+            } catch (searchErr) {
+              send({
+                type: "status",
+                content: `Web search unavailable: ${searchErr instanceof Error ? searchErr.message : "unknown error"}. Answering without it.`,
+              });
+            }
+          }
+        }
+
         // ── Tool loop (non-streamed) ──
         let iteration = 0;
         while (iteration < MAX_TOOL_ITERATIONS) {
@@ -129,6 +198,25 @@ export async function POST(req: Request) {
             const content = raw.replace(/<think>[\s\S]*?<\/think>\s*/g, "").trim();
             if (content) {
               send({ type: "text", content });
+
+              // Save conversation and extract memories before closing stream
+              const lastUserMsg = clientMessages[clientMessages.length - 1];
+              const userText = lastUserMsg?.content || lastUserMsg?.parts?.map((p: { type: string; text: string }) => p.text).join("") || "";
+
+              const convoMessages = clientMessages.map((m: { role: string; content?: string }) => ({
+                role: m.role,
+                content: m.content || "",
+              }));
+              convoMessages.push({ role: "assistant", content });
+
+              // Save conversation (await so we can send convId before closing)
+              try {
+                const convId = await saveConversation(supabase, user.id, incomingConvId || null, convoMessages);
+                if (convId) send({ type: "conversationId", content: convId });
+              } catch {}
+
+              // Extract memories (fire-and-forget, not critical for response)
+              extractMemories(supabase, user.id, userText, content).catch(() => {});
             }
           }
 

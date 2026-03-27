@@ -52,7 +52,7 @@ export async function seedDefaultProgram() {
     .select("id")
     .single();
 
-  if (progErr || !program) throw new Error("Failed to create program");
+  if (progErr || !program) throw new Error(`Failed to create program: ${progErr?.message || "no data returned"}`);
 
   // Get exercise name→id map
   const { data: exercises } = await supabase
