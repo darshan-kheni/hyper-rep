@@ -49,6 +49,7 @@ export async function signup(formData: FormData) {
     await supabase
       .from("profiles")
       .update({
+        name,
         current_weight_kg: currentWeight || null,
         target_weight_kg: targetWeight || 80.0,
       })

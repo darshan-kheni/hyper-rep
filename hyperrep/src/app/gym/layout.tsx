@@ -1,5 +1,5 @@
 import Link from "next/link";
-import { Dumbbell, Pill, Settings } from "lucide-react";
+import { Dumbbell, Bot, Clock, Settings } from "lucide-react";
 import { ThemeToggle } from "@/components/gym/ThemeToggle";
 
 export default function GymLayout({
@@ -26,28 +26,35 @@ export default function GymLayout({
       {/* Main content */}
       <main className="mx-auto max-w-2xl px-4 pb-24 pt-4">{children}</main>
 
-      {/* Bottom nav */}
+      {/* Bottom nav — 4 items */}
       <nav className="fixed bottom-0 left-0 right-0 z-50 border-t border-border bg-bg-primary">
         <div className="mx-auto flex max-w-2xl">
           <Link
             href="/gym"
-            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-bold text-text-muted transition-colors hover:text-accent"
+            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold text-text-muted transition-colors hover:text-accent"
           >
-            <Dumbbell size={20} />
+            <Dumbbell size={18} />
             Workout
           </Link>
           <Link
-            href="/gym/supplements"
-            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-bold text-text-muted transition-colors hover:text-accent"
+            href="/gym/ai"
+            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold text-text-muted transition-colors hover:text-accent"
           >
-            <Pill size={20} />
-            Supplements
+            <Bot size={18} />
+            AI Coach
+          </Link>
+          <Link
+            href="/gym/history"
+            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold text-text-muted transition-colors hover:text-accent"
+          >
+            <Clock size={18} />
+            History
           </Link>
           <Link
             href="/gym/settings"
-            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-xs font-bold text-text-muted transition-colors hover:text-accent"
+            className="flex flex-1 flex-col items-center gap-1 py-2.5 text-[10px] font-bold text-text-muted transition-colors hover:text-accent"
           >
-            <Settings size={20} />
+            <Settings size={18} />
             Settings
           </Link>
         </div>

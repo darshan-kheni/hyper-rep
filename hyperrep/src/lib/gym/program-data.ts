@@ -455,3 +455,39 @@ export const DEFAULT_PROGRAM: ProgramData = {
     },
   ],
 };
+
+/**
+ * Shift the rest day in the program to a different day of the week.
+ * Default rest day is 6 (Saturday). This remaps all dayOfWeek values
+ * so the rest day lands on the chosen day while preserving workout order.
+ */
+export function shiftRestDay(
+  program: ProgramData,
+  newRestDay: number
+): ProgramData {
+  const defaultRestDay = 6;
+  if (newRestDay === defaultRestDay) return program;
+
+  const delta = newRestDay - defaultRestDay;
+
+  return {
+    ...program,
+    schedule: program.schedule.map((week) => ({
+      ...week,
+      days: week.days.map((day) => {
+        const shifted = ((day.dayOfWeek - 1 + delta + 7) % 7) + 1;
+        return { ...day, dayOfWeek: shifted };
+      }),
+    })),
+  };
+}
+
+export const DAY_NAMES = [
+  "Monday",
+  "Tuesday",
+  "Wednesday",
+  "Thursday",
+  "Friday",
+  "Saturday",
+  "Sunday",
+];

@@ -35,6 +35,7 @@ type CompletedLog = {
   reps_completed: number | null;
   weight_used: number | null;
   weight_unit: string;
+  locked_at: string | null;
 };
 
 type Template = {
@@ -119,6 +120,7 @@ export function WorkoutClient({
           reps_completed: null,
           weight_used: null,
           weight_unit: preferredUnit,
+          locked_at: new Date(Date.now() + 20 * 60 * 1000).toISOString(),
         },
       ];
     }
@@ -315,6 +317,11 @@ export function WorkoutClient({
             completedSets={optimisticLogs.filter(
               (l) => l.template_exercise_id === te.id
             )}
+            allLogs={optimisticLogs}
+            templateExerciseSortOrders={Object.fromEntries(
+              templateExercises.map((t) => [t.id, t.sort_order])
+            )}
+            session={session}
             onToggleSet={handleToggleSet}
             hasSession={!!session && !session.ended_at}
             preferredUnit={preferredUnit}

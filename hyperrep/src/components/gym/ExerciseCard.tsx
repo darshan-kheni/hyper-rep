@@ -1,9 +1,11 @@
 "use client";
 
 import { useState } from "react";
-import { Check } from "lucide-react";
+import { Check, Lock } from "lucide-react";
 import { clsx } from "clsx";
 import { RestTimer } from "./RestTimer";
+import { LockCountdown } from "./LockCountdown";
+import { isSetLocked } from "@/lib/gym/lock-utils";
 
 type CompletedLog = {
   id: string;
@@ -12,6 +14,7 @@ type CompletedLog = {
   reps_completed: number | null;
   weight_used: number | null;
   weight_unit: string;
+  locked_at: string | null;
 };
 
 type TemplateExercise = {
@@ -32,6 +35,9 @@ type TemplateExercise = {
 interface ExerciseCardProps {
   templateExercise: TemplateExercise;
   completedSets: CompletedLog[];
+  allLogs: CompletedLog[];
+  templateExerciseSortOrders: Record<string, number>;
+  session: { id: string; started_at: string; ended_at: string | null } | null;
   onToggleSet: (
     templateExerciseId: string,
     exerciseId: string,
@@ -47,6 +53,9 @@ interface ExerciseCardProps {
 export function ExerciseCard({
   templateExercise: te,
   completedSets,
+  allLogs,
+  templateExerciseSortOrders,
+  session,
   onToggleSet,
   hasSession,
   preferredUnit,
@@ -128,20 +137,34 @@ export function ExerciseCard({
       {hasSession && (
         <div className="mt-3 flex flex-col gap-1.5">
           {Array.from({ length: te.sets }, (_, i) => i + 1).map((setNum) => {
-            const isCompleted = completedSets.some(
+            const completedLog = completedSets.find(
               (l) => l.set_number === setNum
             );
+            const isCompleted = !!completedLog;
+
+            // Check lock status
+            const locked = isCompleted && completedLog
+              ? isSetLocked(
+                  completedLog,
+                  allLogs,
+                  templateExerciseSortOrders,
+                  session ? { ended_at: session.ended_at, locked_at: null } : null
+                )
+              : false;
 
             return (
               <SetRow
                 key={setNum}
                 setNumber={setNum}
                 isCompleted={isCompleted}
+                isLocked={locked}
+                lockedAt={completedLog?.locked_at || null}
                 targetWeight={targetWeightNum}
                 targetReps={targetRepsNum}
                 targetWeightLabel={te.target_weight}
                 preferredUnit={preferredUnit}
                 onToggle={(weight, reps) => {
+                  if (locked) return;
                   onToggleSet(
                     te.id,
                     exercise.id,
@@ -175,6 +198,8 @@ export function ExerciseCard({
 function SetRow({
   setNumber,
   isCompleted,
+  isLocked,
+  lockedAt,
   targetWeight,
   targetReps,
   targetWeightLabel,
@@ -183,6 +208,8 @@ function SetRow({
 }: {
   setNumber: number;
   isCompleted: boolean;
+  isLocked: boolean;
+  lockedAt: string | null;
   targetWeight: number | null;
   targetReps: number | null;
   targetWeightLabel: string | null;
@@ -197,12 +224,17 @@ function SetRow({
   );
 
   const isBW = targetWeightLabel === "BW" || targetWeightLabel?.includes("BW");
+  const inputDisabled = isCompleted || isLocked;
 
   return (
     <div
       className={clsx(
         "flex items-center gap-2 rounded-xl px-3 py-2 transition-all",
-        isCompleted ? "bg-accent-subtle/50" : "bg-bg-elevated"
+        isLocked
+          ? "bg-bg-elevated/50 opacity-50"
+          : isCompleted
+            ? "bg-accent-subtle/50"
+            : "bg-bg-elevated"
       )}
     >
       <span className="w-6 text-center text-[10px] font-bold text-text-muted">
@@ -216,7 +248,7 @@ function SetRow({
           onChange={(e) => setWeight(e.target.value)}
           placeholder="lbs"
           className="w-16 rounded-lg border border-border bg-bg-card px-2 py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-accent"
-          disabled={isCompleted}
+          disabled={inputDisabled}
         />
       )}
 
@@ -236,25 +268,37 @@ function SetRow({
         onChange={(e) => setReps(e.target.value)}
         placeholder="reps"
         className="w-14 rounded-lg border border-border bg-bg-card px-2 py-1 text-center font-mono text-xs font-bold focus:outline-none focus:ring-1 focus:ring-accent"
-        disabled={isCompleted}
+        disabled={inputDisabled}
       />
 
-      <button
-        onClick={() =>
-          onToggle(
-            parseFloat(weight) || null,
-            parseInt(reps) || null
-          )
-        }
-        className={clsx(
-          "ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer",
-          isCompleted
-            ? "bg-accent text-white"
-            : "border-2 border-border text-text-muted hover:border-accent"
-        )}
-      >
-        {isCompleted && <Check size={14} />}
-      </button>
+      {/* Lock countdown for editable-but-ticking sets */}
+      {isCompleted && !isLocked && lockedAt && (
+        <LockCountdown lockAt={lockedAt} />
+      )}
+
+      {/* Lock icon or check button */}
+      {isLocked ? (
+        <div className="ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg bg-bg-elevated text-text-muted">
+          <Lock size={12} />
+        </div>
+      ) : (
+        <button
+          onClick={() =>
+            onToggle(
+              parseFloat(weight) || null,
+              parseInt(reps) || null
+            )
+          }
+          className={clsx(
+            "ml-auto flex h-8 w-8 flex-shrink-0 items-center justify-center rounded-lg transition-colors cursor-pointer",
+            isCompleted
+              ? "bg-accent text-white"
+              : "border-2 border-border text-text-muted hover:border-accent"
+          )}
+        >
+          {isCompleted && <Check size={14} />}
+        </button>
+      )}
     </div>
   );
 }

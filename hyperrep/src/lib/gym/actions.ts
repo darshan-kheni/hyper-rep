@@ -2,7 +2,7 @@
 
 import { revalidatePath } from "next/cache";
 import { createClient } from "@/lib/supabase/server";
-import { DEFAULT_PROGRAM } from "./program-data";
+import { DEFAULT_PROGRAM, shiftRestDay } from "./program-data";
 
 // ── Auth helper ──
 async function getUser() {
@@ -29,6 +29,16 @@ export async function seedDefaultProgram() {
 
   if (existing) return existing.id;
 
+  // Get user's preferred rest day
+  const { data: profile } = await supabase
+    .from("profiles")
+    .select("rest_day")
+    .eq("id", user.id)
+    .single();
+
+  const restDay = profile?.rest_day || 6;
+  const programData = shiftRestDay(DEFAULT_PROGRAM, restDay);
+
   // Create program
   const { data: program, error: progErr } = await supabase
     .from("programs")
@@ -54,7 +64,7 @@ export async function seedDefaultProgram() {
   );
 
   // Create templates and template_exercises for each week/day
-  for (const week of DEFAULT_PROGRAM.schedule) {
+  for (const week of programData.schedule) {
     for (const day of week.days) {
       const { data: template, error: tmplErr } = await supabase
         .from("workout_templates")
@@ -153,6 +163,8 @@ export async function endSession(
       )
     : null;
 
+  const lockAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+
   await supabase
     .from("workout_sessions")
     .update({
@@ -160,9 +172,18 @@ export async function endSession(
       duration_minutes: durationMinutes,
       mood_rating: moodRating || null,
       notes: notes || null,
+      locked_at: lockAt,
     })
     .eq("id", sessionId)
     .eq("user_id", user.id);
+
+  // Set locked_at on all exercise logs that don't already have one
+  await supabase
+    .from("exercise_logs")
+    .update({ locked_at: lockAt })
+    .eq("session_id", sessionId)
+    .eq("user_id", user.id)
+    .is("locked_at", null);
 
   revalidatePath("/gym/workout");
   revalidatePath("/gym");
@@ -181,8 +202,38 @@ export async function toggleSetCompletion(
 ) {
   const { supabase, user } = await getUser();
 
+  // Server-side lock enforcement: check if session is locked
+  const { data: session } = await supabase
+    .from("workout_sessions")
+    .select("ended_at, locked_at")
+    .eq("id", sessionId)
+    .eq("user_id", user.id)
+    .single();
+
+  if (session?.locked_at && Date.now() >= new Date(session.locked_at).getTime()) {
+    throw new Error("Session is locked. No further edits allowed.");
+  }
+
+  // Check if this specific exercise log is locked
+  if (!isCompleted) {
+    const { data: existingLog } = await supabase
+      .from("exercise_logs")
+      .select("locked_at")
+      .eq("session_id", sessionId)
+      .eq("template_exercise_id", templateExerciseId)
+      .eq("set_number", setNumber)
+      .eq("user_id", user.id)
+      .single();
+
+    if (existingLog?.locked_at && Date.now() >= new Date(existingLog.locked_at).getTime()) {
+      throw new Error("This exercise is locked. Cannot uncheck.");
+    }
+  }
+
+  const lockAt = new Date(Date.now() + 20 * 60 * 1000).toISOString();
+
   if (isCompleted) {
-    // Insert log
+    // Insert log with 20-min lock window
     await supabase.from("exercise_logs").insert({
       session_id: sessionId,
       exercise_id: exerciseId,
@@ -194,9 +245,45 @@ export async function toggleSetCompletion(
       weight_unit: weightUnit,
       is_completed: true,
       completed_at: new Date().toISOString(),
+      locked_at: lockAt,
     });
+
+    // Lock any previously completed exercises with lower sort_order immediately
+    // Get sort_order of current template exercise
+    const { data: currentTE } = await supabase
+      .from("template_exercises")
+      .select("sort_order")
+      .eq("id", templateExerciseId)
+      .single();
+
+    if (currentTE) {
+      // Find all template_exercises in same template with lower sort_order
+      const { data: earlierTEs } = await supabase
+        .from("template_exercises")
+        .select("id")
+        .eq("template_id", (
+          await supabase
+            .from("template_exercises")
+            .select("template_id")
+            .eq("id", templateExerciseId)
+            .single()
+        ).data?.template_id || "")
+        .lt("sort_order", currentTE.sort_order);
+
+      if (earlierTEs && earlierTEs.length > 0) {
+        const earlierIds = earlierTEs.map((te) => te.id);
+        // Lock earlier exercises immediately (set locked_at to now)
+        await supabase
+          .from("exercise_logs")
+          .update({ locked_at: new Date().toISOString() })
+          .eq("session_id", sessionId)
+          .eq("user_id", user.id)
+          .in("template_exercise_id", earlierIds)
+          .is("locked_at", null);
+      }
+    }
   } else {
-    // Delete log
+    // Delete log (uncheck)
     await supabase
       .from("exercise_logs")
       .delete()
@@ -249,10 +336,37 @@ export async function updateProfile(formData: FormData) {
       gym_start_time: (formData.get("gymStartTime") as string) || "17:30",
       preferred_weight_unit:
         (formData.get("preferredUnit") as string) || "lbs",
+      rest_day: parseInt(formData.get("restDay") as string) || 6,
       timezone: (formData.get("timezone") as string) || "Asia/Kolkata",
     })
     .eq("id", user.id);
 
   revalidatePath("/gym/settings");
   revalidatePath("/gym");
+}
+
+// ── Regenerate program (after changing rest day) ──
+export async function regenerateProgram() {
+  const { supabase, user } = await getUser();
+
+  // Deactivate current program (cascade deletes templates + template_exercises)
+  await supabase
+    .from("programs")
+    .update({ is_active: false })
+    .eq("user_id", user.id)
+    .eq("is_active", true);
+
+  // Delete inactive programs to clean up
+  await supabase
+    .from("programs")
+    .delete()
+    .eq("user_id", user.id)
+    .eq("is_active", false);
+
+  // Re-seed with new rest day
+  const programId = await seedDefaultProgram();
+
+  revalidatePath("/gym");
+  revalidatePath("/gym/settings");
+  return programId;
 }

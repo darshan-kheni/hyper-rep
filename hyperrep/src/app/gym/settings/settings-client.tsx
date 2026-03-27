@@ -1,7 +1,7 @@
 "use client";
 
 import { useState, useTransition } from "react";
-import { updateProfile, logWeight } from "@/lib/gym/actions";
+import { updateProfile, logWeight, regenerateProgram } from "@/lib/gym/actions";
 import { signOut } from "@/lib/supabase/auth-actions";
 import { Button } from "@/components/ui/Button";
 import { Input } from "@/components/ui/Input";
@@ -15,6 +15,7 @@ type Profile = {
   target_weight_kg: number | null;
   gym_start_time: string | null;
   preferred_weight_unit: string | null;
+  rest_day: number | null;
   timezone: string | null;
 };
 
@@ -102,6 +103,25 @@ export function SettingsClient({
             </select>
           </div>
 
+          <div className="flex flex-col gap-1.5">
+            <label className="text-xs font-semibold uppercase tracking-wider text-text-muted">
+              Rest Day
+            </label>
+            <select
+              name="restDay"
+              defaultValue={profile?.rest_day || 6}
+              className="rounded-xl border border-border bg-bg-card px-4 py-3 text-sm text-text-primary focus:outline-none focus:ring-2 focus:ring-accent"
+            >
+              <option value={1}>Monday</option>
+              <option value={2}>Tuesday</option>
+              <option value={3}>Wednesday</option>
+              <option value={4}>Thursday</option>
+              <option value={5}>Friday</option>
+              <option value={6}>Saturday</option>
+              <option value={7}>Sunday</option>
+            </select>
+          </div>
+
           <input
             type="hidden"
             name="timezone"
@@ -112,6 +132,23 @@ export function SettingsClient({
             {saved ? "Saved!" : isPending ? "Saving..." : "Save Changes"}
           </Button>
         </form>
+
+        <Button
+          variant="secondary"
+          fullWidth
+          disabled={isPending}
+          onClick={() => {
+            if (confirm("This will regenerate your workout program with the new rest day. Existing session history is preserved. Continue?")) {
+              startTransition(async () => {
+                await regenerateProgram();
+                setSaved(true);
+                setTimeout(() => setSaved(false), 2000);
+              });
+            }
+          }}
+        >
+          Regenerate Program
+        </Button>
       </Card>
 
       {/* Weight logging */}

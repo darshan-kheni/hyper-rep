@@ -92,7 +92,7 @@ export default async function WorkoutPage({ searchParams }: PageProps) {
     .limit(1)
     .single();
 
-  // Get completed logs for this session
+  // Get completed logs for this session (include locked_at for lock system)
   let completedLogs: {
     id: string;
     template_exercise_id: string;
@@ -100,12 +100,13 @@ export default async function WorkoutPage({ searchParams }: PageProps) {
     reps_completed: number | null;
     weight_used: number | null;
     weight_unit: string;
+    locked_at: string | null;
   }[] = [];
 
   if (existingSession) {
     const { data: logs } = await supabase
       .from("exercise_logs")
-      .select("id, template_exercise_id, set_number, reps_completed, weight_used, weight_unit")
+      .select("id, template_exercise_id, set_number, reps_completed, weight_used, weight_unit, locked_at")
       .eq("session_id", existingSession.id)
       .eq("is_completed", true);
     completedLogs = logs || [];
