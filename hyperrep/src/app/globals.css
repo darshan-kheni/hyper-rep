@@ -1,0 +1,63 @@
+@import "tailwindcss";
+
+@theme inline {
+  --color-bg-primary: var(--bg-primary);
+  --color-bg-card: var(--bg-card);
+  --color-bg-elevated: var(--bg-elevated);
+  --color-text-primary: var(--text-primary);
+  --color-text-secondary: var(--text-secondary);
+  --color-text-muted: var(--text-muted);
+  --color-border: var(--border-color);
+  --color-accent: var(--accent);
+  --color-accent-hover: var(--accent-hover);
+  --color-accent-subtle: var(--accent-subtle);
+  --color-accent-glow: var(--accent-glow);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-error: var(--error);
+  --font-sans: var(--font-inter);
+  --font-mono: var(--font-jetbrains-mono);
+}
+
+/* Light mode (default fallback) */
+:root {
+  --bg-primary: #F0F7FF;
+  --bg-card: #FFFFFF;
+  --bg-elevated: #E8F0FA;
+  --text-primary: #0A0A0A;
+  --text-secondary: #333333;
+  --text-muted: #6B7B94;
+  --border-color: #C8D8EC;
+  --accent: #0066CC;
+  --accent-hover: #004499;
+  --accent-subtle: rgba(0, 102, 204, 0.06);
+  --accent-glow: rgba(0, 102, 204, 0.15);
+  --success: #00AA66;
+  --warning: #CC8800;
+  --error: #CC3333;
+}
+
+/* Dark mode — Black & Electric Blue */
+.dark {
+  --bg-primary: #000000;
+  --bg-card: #0A0A0A;
+  --bg-elevated: #111111;
+  --text-primary: #E8E8E8;
+  --text-secondary: #AAAAAA;
+  --text-muted: #555555;
+  --border-color: #1A1A1A;
+  --accent: #00AAFF;
+  --accent-hover: #0088CC;
+  --accent-subtle: rgba(0, 170, 255, 0.08);
+  --accent-glow: rgba(0, 170, 255, 0.2);
+  --success: #00CC88;
+  --warning: #FFAA00;
+  --error: #FF4444;
+}
+
+body {
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-family: var(--font-sans), system-ui, -apple-system, sans-serif;
+  transition: background-color 0.3s, color 0.3s;
+}
