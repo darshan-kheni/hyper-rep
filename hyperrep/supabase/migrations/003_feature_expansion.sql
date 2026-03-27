@@ -35,7 +35,7 @@ CREATE INDEX IF NOT EXISTS idx_ai_conversations_user ON ai_conversations(user_id
 
 CREATE TRIGGER ai_conversations_updated_at
   BEFORE UPDATE ON ai_conversations
-  FOR EACH ROW EXECUTE FUNCTION update_updated_at();
+  FOR EACH ROW EXECUTE FUNCTION public.handle_updated_at();
 
 -- 4. Exercise checkmark locking
 ALTER TABLE exercise_logs ADD COLUMN IF NOT EXISTS locked_at TIMESTAMPTZ;

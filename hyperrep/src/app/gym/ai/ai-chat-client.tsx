@@ -1,31 +1,89 @@
 "use client";
 
-import { useChat } from "@ai-sdk/react";
-import { TextStreamChatTransport } from "ai";
-import { useState, useMemo } from "react";
+import { useState, useRef, useEffect, useCallback } from "react";
 import { Send, Bot, User } from "lucide-react";
 import { clsx } from "clsx";
+
+type Message = {
+  id: string;
+  role: "user" | "assistant";
+  content: string;
+};
 
 interface AIChatClientProps {
   userName: string;
 }
 
 export function AIChatClient({ userName }: AIChatClientProps) {
-  const transport = useMemo(
-    () => new TextStreamChatTransport({ api: "/api/gym/ai/chat" }),
-    []
-  );
-
-  const { messages, sendMessage, status, error } = useChat({ transport });
-
+  const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState("");
-  const isLoading = status === "streaming" || status === "submitted";
+  const [isLoading, setIsLoading] = useState(false);
+  const [error, setError] = useState<string | null>(null);
+  const scrollRef = useRef<HTMLDivElement>(null);
 
-  function handleSend(text?: string) {
+  const scrollToBottom = useCallback(() => {
+    scrollRef.current?.scrollTo({ top: scrollRef.current.scrollHeight, behavior: "smooth" });
+  }, []);
+
+  useEffect(() => {
+    scrollToBottom();
+  }, [messages, scrollToBottom]);
+
+  async function handleSend(text?: string) {
     const msg = text || input.trim();
     if (!msg || isLoading) return;
-    sendMessage({ role: "user", parts: [{ type: "text", text: msg }] });
+
     setInput("");
+    setError(null);
+
+    const userMsg: Message = { id: `u-${Date.now()}`, role: "user", content: msg };
+    const assistantMsg: Message = { id: `a-${Date.now()}`, role: "assistant", content: "" };
+
+    setMessages((prev) => [...prev, userMsg, assistantMsg]);
+    setIsLoading(true);
+
+    try {
+      const response = await fetch("/api/gym/ai/chat", {
+        method: "POST",
+        headers: { "Content-Type": "application/json" },
+        body: JSON.stringify({
+          messages: [...messages, userMsg].map((m) => ({
+            role: m.role,
+            content: m.content,
+          })),
+        }),
+      });
+
+      if (!response.ok) {
+        throw new Error(await response.text());
+      }
+
+      const reader = response.body?.getReader();
+      if (!reader) throw new Error("No response stream");
+
+      const decoder = new TextDecoder();
+      let fullContent = "";
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value, { stream: true });
+        fullContent += chunk;
+
+        setMessages((prev) =>
+          prev.map((m) =>
+            m.id === assistantMsg.id ? { ...m, content: fullContent } : m
+          )
+        );
+      }
+    } catch (err) {
+      setError(err instanceof Error ? err.message : "Failed to get response");
+      // Remove empty assistant message on error
+      setMessages((prev) => prev.filter((m) => m.id !== assistantMsg.id));
+    } finally {
+      setIsLoading(false);
+    }
   }
 
   return (
@@ -35,11 +93,11 @@ export function AIChatClient({ userName }: AIChatClientProps) {
         AI Coach
       </h2>
       <p className="mb-4 text-xs text-text-muted">
-        Ask about your workouts, nutrition, or get plan suggestions
+        Powered by Ollama Cloud — ask about workouts, nutrition, or get plan suggestions
       </p>
 
       {/* Messages */}
-      <div className="flex-1 overflow-y-auto space-y-3 mb-4">
+      <div ref={scrollRef} className="flex-1 overflow-y-auto space-y-3 mb-4">
         {messages.length === 0 && (
           <div className="text-center py-12">
             <Bot size={40} className="mx-auto mb-3 text-text-muted opacity-30" />
@@ -86,11 +144,7 @@ export function AIChatClient({ userName }: AIChatClientProps) {
                   : "bg-bg-card border border-border"
               )}
             >
-              <div className="whitespace-pre-wrap">
-                {msg.parts?.map((part, i) =>
-                  part.type === "text" ? <span key={i}>{part.text}</span> : null
-                )}
-              </div>
+              <div className="whitespace-pre-wrap">{msg.content}</div>
             </div>
             {msg.role === "user" && (
               <div className="flex-shrink-0 mt-1">
@@ -100,7 +154,7 @@ export function AIChatClient({ userName }: AIChatClientProps) {
           </div>
         ))}
 
-        {isLoading && messages[messages.length - 1]?.role === "user" && (
+        {isLoading && messages[messages.length - 1]?.content === "" && (
           <div className="flex gap-2">
             <Bot size={16} className="text-accent mt-1" />
             <div className="rounded-2xl bg-bg-card border border-border px-4 py-2.5">
@@ -115,7 +169,7 @@ export function AIChatClient({ userName }: AIChatClientProps) {
 
         {error && (
           <div className="rounded-xl border border-error/30 bg-error/10 px-4 py-3 text-xs text-error">
-            Failed to connect to AI. Make sure Ollama is running.
+            {error}
           </div>
         )}
       </div>
